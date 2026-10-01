@@ -1,0 +1,16 @@
+{
+  "name": "professors-map",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Marauder's-Map style real-time map of where professors are on campus.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#eedfbd" />
+  <title>Join the Professors' Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="parchment.css" />
+  <style>
+    main { position: relative; z-index: 1; max-width: 420px; margin: 0 auto; padding: 28px 16px 48px; }
+    header { text-align: center; margin: 4px 0 20px; }
+    header h1 { font-family: var(--font-title); font-size: 1.6rem; margin: 0; line-height: 1.15; }
+    header p { margin: 6px 0 0; font-style: italic; color: var(--ink-soft); }
+    section { padding: 22px 18px; text-align: center; }
+    h2 { font-family: var(--font-sc); font-weight: 400; font-size: 1.25rem; margin: 0 0 8px; letter-spacing: 0.03em; }
+    .muted { color: var(--ink-soft); font-style: italic; font-size: 0.95rem; line-height: 1.45; margin: 0 0 16px; }
+    .hide { display: none !important; }
+    a { color: var(--red); }
+
+    .steps { display: flex; justify-content: center; gap: 6px; margin: -4px 0 18px; font-family: var(--font-sc); font-size: 0.85rem; color: var(--ink-soft); }
+    .steps span { padding: 2px 8px; border-bottom: 2px solid transparent; }
+    .steps span.on { color: var(--ink); border-bottom-color: var(--red); }
+    .steps span.done { color: var(--ok); }
+
+    .name-input { font-size: 1.35rem !important; text-align: center; padding: 0.5em 0.2em !important; }
+    .big { width: 100%; font-size: 1.1rem; padding: 0.9em 1em; margin-top: 16px; }
+    .pin { font-size: 2.4rem; line-height: 1; margin-bottom: 8px; }
+    .problem { text-align: left; margin: 16px 0 0; padding: 10px 12px; border-left: 3px solid var(--red); background: rgba(125, 29, 29, 0.06); font-size: 0.95rem; line-height: 1.45; }
+    .problem b { font-family: var(--font-sc); font-weight: 400; }
+    .problem ol { margin: 6px 0 0; padding-left: 20px; }
+    .small { margin-top: 14px; font-size: 0.92rem; }
+    .linkbtn { background: none; border: none; color: var(--red); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>The Professors' Map</h1>
+      <p>Put your footprints on the map</p>
+    </header>
+
+    <div class="steps" aria-hidden="true">
+      <span id="step1">1 · Name</span><span id="step2">2 · Location</span><span id="step3">3 · Map</span>
+    </div>
+
+    <section class="card hide" id="nameCard">
+      <h2>What should the map call you?</h2>
+      <p class="muted">No account, no password.</p>
+      <form id="joinForm">
+        <input type="text" id="nameInput" class="name-input" placeholder="Your name" maxlength="40" autocomplete="name" autocapitalize="words" required />
+        <button class="btn big" type="submit">Continue</button>
+      </form>
+    </section>
+
+    <section class="card hide" id="locCard">
+      <div class="pin">📍</div>
+      <h2 id="hello"></h2>
+      <p class="muted">Your phone will ask to share your location. Tap <b>Allow</b>. You can hide yourself from the map any time.</p>
+      <button class="btn big" id="allow">Allow location</button>
+      <div class="problem hide" id="problem"></div>
+      <p class="small"><button class="linkbtn" id="rename">Not you? Change name</button></p>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="geo.js"></script>
+  <script src="client.js"></script>
+  <script src="share.js"></script>
+  <script src="teacher.js"></script>
+</body>
+</html>

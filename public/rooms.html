@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Room QR Codes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="parchment.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    main { position: relative; z-index: 1; max-width: 1000px; margin: 0 auto; padding: 28px 16px 48px; }
+    h1 { font-family: var(--font-title); text-align: center; margin: 0 0 6px; }
+    .intro { text-align: center; color: var(--ink-soft); font-style: italic; margin: 0 0 20px; }
+    .base { display: flex; gap: 10px; align-items: center; max-width: 620px; margin: 0 auto 28px; }
+    .base label { font-family: var(--font-sc); white-space: nowrap; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; }
+    .tag { padding: 16px; text-align: center; break-inside: avoid; }
+    .tag .k { font-family: var(--font-title); color: var(--red); font-size: 1.6rem; }
+    .tag .n { font-family: var(--font-sc); font-size: 1.1rem; margin: 2px 0; }
+    .tag .z { font-style: italic; color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 10px; }
+    .qr { display: inline-block; padding: 8px; background: #fff; }
+    .qr img, .qr canvas { display: block; }
+    .tag .hint { font-size: 0.8rem; margin-top: 8px; color: var(--ink-soft); }
+    @media print {
+      body::before, .base, .intro, .no-print { display: none !important; }
+      body { background: #fff; }
+      .card { box-shadow: none; border: 1px dashed #999; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Door Charms</h1>
+    <p class="intro">Print these and stick one on each door. A professor scans it to pin themselves to that room.</p>
+    <div class="base">
+      <label for="base">Public URL</label>
+      <input type="text" id="base" />
+      <button class="btn" onclick="print()">Print</button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    const baseEl = document.getElementById('base');
+    try { baseEl.value = localStorage.getItem('pm-public-url') || location.origin; } catch { baseEl.value = location.origin; }
+
+    function render() {
+      const base = baseEl.value.trim().replace(/\/$/, '');
+      try { localStorage.setItem('pm-public-url', base); } catch {}
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for (const r of CAMPUS.rooms.filter((x) => x.key).sort((a, b) => a.key.localeCompare(b.key))) {
+        const tag = document.createElement('div');
+        tag.className = 'tag card';
+        tag.innerHTML = `<div class="k">${r.key}</div><div class="n"></div><div class="z"></div><div class="qr"></div><div class="hint">Scan to check in</div>`;
+        tag.querySelector('.n').textContent = r.name;
+        tag.querySelector('.z').textContent = r.layer === 'ground' ? 'Ground floor' : '7th floor';
+        grid.appendChild(tag);
+        const url = `${base}/checkin?room=${encodeURIComponent(r.id)}`;
+        if (window.QRCode) new QRCode(tag.querySelector('.qr'), { text: url, width: 140, height: 140, correctLevel: QRCode.CorrectLevel.M });
+        else tag.querySelector('.qr').textContent = url;
+      }
+    }
+    baseEl.addEventListener('change', render);
+    render();
+  </script>
+</body>
+</html>

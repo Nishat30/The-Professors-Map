@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Room Check-in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="parchment.css" />
+  <style>
+    main { position: relative; z-index: 1; max-width: 420px; margin: 0 auto; padding: 48px 16px; text-align: center; }
+    .card { padding: 28px 20px; }
+    .key { font-family: var(--font-title); font-size: 3rem; color: var(--red); line-height: 1; }
+    h1 { font-family: var(--font-sc); font-weight: 400; font-size: 1.6rem; margin: 8px 0 2px; }
+    .muted { color: var(--ink-soft); font-style: italic; }
+    form { display: flex; gap: 10px; margin-top: 16px; }
+    .done { font-size: 1.15rem; margin: 18px 0 6px; }
+    a { color: var(--red); }
+    .hide { display: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="card">
+      <div class="key" id="key">?</div>
+      <h1 id="room">Unknown room</h1>
+      <p class="muted" id="where"></p>
+
+      <form id="joinForm" class="hide">
+        <input type="text" id="nameInput" placeholder="Your name, e.g. Prof. Sharma" maxlength="40" required />
+        <button class="btn" type="submit">Check in</button>
+      </form>
+      <p class="done hide" id="done"></p>
+      <p class="muted hide" id="after">Your pin stays here for up to <span id="mins"></span> minutes, or until your GPS shows you've left.<br /><a href="/">See yourself on the map</a></p>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="geo.js"></script>
+  <script src="client.js"></script>
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      const room = GEO.roomById(CAMPUS, new URLSearchParams(location.search).get('room'));
+      if (!room || !room.key) { $('where').textContent = 'This QR code points to a room the map doesn’t know.'; return; }
+
+      $('key').textContent = room.key;
+      $('room').textContent = room.name;
+      $('where').textContent = room.layer === 'ground' ? 'Ground floor' : '7th floor \u00b7 Computer Science department';
+      $('mins').textContent = CAMPUS.roomPinMinutes;
+
+      let checkedIn = false;
+      const sock = PM.connect({
+        onOpen: () => (PM.identity.get() && !checkedIn ? [{ type: 'checkin', room: room.id }] : []),
+        onMessage: (msg) => {
+          const me = PM.identity.get();
+          if (msg.type === 'update' && me && msg.teacher.id === me.id && msg.teacher.room === room.id) {
+            checkedIn = true;
+            $('done').textContent = `✓ ${me.name}, you’re marked here.`;
+            $('done').classList.remove('hide');
+            $('after').classList.remove('hide');
+            $('joinForm').classList.add('hide');
+          }
+        },
+      });
+
+      // Checking in means sharing: the map page keeps sending GPS from here on.
+      PM.save('pm-share', { sharing: true });
+
+      if (!PM.identity.get()) {
+        $('joinForm').classList.remove('hide');
+        $('joinForm').onsubmit = (e) => {
+          e.preventDefault();
+          const name = $('nameInput').value.trim();
+          if (!name) return;
+          const me = PM.identity.set(name);
+          sock.send({ type: 'join', ...me });
+          sock.send({ type: 'checkin', room: room.id });
+        };
+      }
+    })();
+  </script>
+</body>
+</html>

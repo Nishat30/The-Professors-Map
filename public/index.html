@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Professors' Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="parchment.css" />
+  <style>
+    body { overflow: hidden; }
+    .app { position: relative; z-index: 1; display: flex; height: 100vh; height: 100dvh; }
+
+    .map-wrap { flex: 1; min-width: 0; overflow: auto; position: relative; }
+    #map { display: block; width: 100%; height: 100%; min-width: 1100px; min-height: 540px; }
+
+    /* ---- side panel ---- */
+    .panel {
+      width: 340px; flex: none; margin: 16px 16px 16px 0; padding: 20px 18px 14px;
+      display: flex; flex-direction: column; gap: 12px; overflow: hidden;
+    }
+    .panel h2 { font-family: var(--font-sc); font-weight: 400; font-size: 1.35rem; margin: 0; letter-spacing: 0.03em; }
+    .panel .sub { margin: -6px 0 0; font-style: italic; color: var(--ink-soft); font-size: 0.95rem; }
+    .conn { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--ink-soft); }
+    .conn i { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+    .conn.on i { background: var(--ok); }
+
+    .list { list-style: none; margin: 0 -6px; padding: 0 6px; overflow-y: auto; flex: 1; min-height: 60px; }
+    .item {
+      padding: 10px 8px; border-bottom: 1px dashed rgba(122, 85, 48, 0.4); cursor: pointer;
+      display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: baseline;
+    }
+    .item:hover, .item.active { background: var(--ink-faint); }
+    .item .name { font-family: var(--font-sc); font-size: 1.08rem; }
+    .item .when { font-size: 0.8rem; color: var(--ink-soft); font-style: italic; }
+    .item .where { grid-column: 1 / -1; font-size: 0.95rem; }
+    .item .status { grid-column: 1 / -1; font-size: 0.8rem; }
+    .item.hidden { opacity: 0.55; cursor: default; }
+    .item.nomap { cursor: default; }
+    .item.nomap .where { color: var(--ink-soft); font-style: italic; }
+    .item.stale .where::after { content: ' \00b7 last seen'; font-style: italic; color: var(--ink-soft); }
+    .live { color: var(--ok); font-style: normal !important; }
+    .s-Available, .s-Office { color: var(--ok); }
+    .s-In, .s-Busy { color: var(--red); }
+    .empty { font-style: italic; color: var(--ink-soft); text-align: center; padding: 18px 6px; line-height: 1.5; }
+    .empty code { font-style: normal; background: var(--ink-faint); padding: 1px 5px; }
+    .foot { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; border-top: 1px solid rgba(122, 85, 48, 0.35); padding-top: 10px; }
+    .foot a { color: var(--red); }
+
+    /* ---- svg bits ---- */
+    .zone-label { font-family: var(--font-sc); font-size: 13px; fill: var(--ink); letter-spacing: 0.06em; }
+    .room-label { font-family: var(--font-sc); font-size: 12px; fill: var(--ink); letter-spacing: 0.04em; }
+    .hod-label { fill: var(--red); }
+    .room-key { font-family: var(--font-sc); font-size: 10px; fill: var(--ink); }
+    .legend text { font-family: var(--font-sc); fill: var(--ink); }
+    .person-name { font-family: var(--font-sc); font-size: 13px; fill: var(--ink); }
+    .person-sub { font-family: var(--font-body); font-style: italic; font-size: 10.5px; fill: var(--ink-soft); }
+    .person { transition: opacity 0.8s; }
+    .person.stale { opacity: 0.45; }
+    .pulse { fill: none; stroke: var(--red); stroke-width: 2; opacity: 0; }
+    .person.active .pulse { animation: pulse 1.6s ease-out 3; }
+    @keyframes pulse { from { r: 6; opacity: 0.9; } to { r: 46; opacity: 0; } }
+
+    .me { border: 1px solid var(--ink-soft); background: rgba(255, 250, 235, 0.55); padding: 10px 12px; }
+    .me-top { display: flex; align-items: center; gap: 8px; }
+    .me-name { font-family: var(--font-sc); font-size: 1.05rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .me-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); animation: blink 1.6s infinite; }
+    .me-dot.wait { background: var(--gold); }
+    .me-dot.off { background: var(--ink-soft); animation: none; }
+    .me-dot.bad { background: var(--red); animation: none; }
+    @keyframes blink { 50% { opacity: 0.25; } }
+    .me-where { font-size: 0.95rem; margin-top: 4px; line-height: 1.35; }
+    .me-where small { display: block; color: var(--ink-soft); font-style: italic; font-size: 0.85rem; margin-top: 2px; }
+    .linkbtn { background: none; border: none; color: var(--red); font: inherit; font-size: 0.9rem; text-decoration: underline; cursor: pointer; padding: 0; white-space: nowrap; }
+
+    @media (max-width: 760px) {
+      .app { flex-direction: column; }
+      .panel { width: auto; margin: 0 12px 12px; max-height: 42dvh; padding: 14px 14px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="map-wrap" id="mapWrap">
+      <svg id="map" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-label="Campus map with live professor locations"></svg>
+    </div>
+
+    <aside class="panel card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <h2>Whom do you seek?</h2>
+        <span class="conn" id="conn"><i></i><span>Connecting…</span></span>
+      </div>
+      <p class="sub" id="count">Reading the parchment…</p>
+      <div class="me hide" id="meBar">
+        <div class="me-top"><span class="me-dot" id="meDot"></span><span class="me-name" id="meName"></span><button class="linkbtn" id="meToggle"></button></div>
+        <div class="me-where" id="meWhere"></div>
+      </div>
+      <input type="text" id="search" placeholder="Search a professor by name…" autocomplete="off" />
+      <ul class="list" id="list"></ul>
+      <div class="foot">
+        <span>A professor? <a href="/join">Join the map</a> · <a href="#" id="copyJoin">copy link</a></span>
+        <a href="/rooms">Room QR codes</a>
+      </div>
+    </aside>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="geo.js"></script>
+  <script src="client.js"></script>
+  <script src="share.js"></script>
+  <script src="illustrate.js"></script>
+  <script src="map.js"></script>
+</body>
+</html>

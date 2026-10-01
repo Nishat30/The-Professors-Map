@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Survey Parchment</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="parchment.css" />
+  <style>
+    main { position: relative; z-index: 1; max-width: 520px; margin: 0 auto; padding: 18px 16px 48px; }
+    h1 { font-family: var(--font-title); font-size: 1.6rem; text-align: center; margin: 4px 0 2px; }
+    .lead { text-align: center; font-style: italic; color: var(--ink-soft); margin: 0 0 18px; }
+    section { padding: 16px; margin-bottom: 20px; }
+    h2 { font-family: var(--font-sc); font-weight: 400; font-size: 1.1rem; margin: 0 0 10px; }
+    .muted { color: var(--ink-soft); font-style: italic; font-size: 0.92rem; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-family: var(--font-sc); font-size: 0.85rem; color: var(--ink-soft); }
+    .types { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .types button { font-family: var(--font-sc); font-size: 0.85rem; background: transparent; color: var(--ink); border: 1px solid var(--ink-soft); padding: 5px 9px; border-radius: 2px; cursor: pointer; }
+    .types button.sel { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .rec { width: 100%; font-size: 1.1rem; padding: 14px; }
+    .rec.running { background: var(--red); border-color: var(--red); }
+    .live { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; margin: 12px 0 0; }
+    .live b { display: block; font-size: 1.3rem; font-family: var(--font-body); }
+    .live span { font-family: var(--font-sc); font-size: 0.75rem; color: var(--ink-soft); }
+    .warn { color: var(--red); font-size: 0.92rem; }
+    .q-good { color: var(--ok); } .q-ok { color: var(--gold); } .q-bad { color: var(--red); }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { padding: 9px 0; border-bottom: 1px dashed rgba(122, 85, 48, 0.4); display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; }
+    li .n { font-family: var(--font-sc); }
+    li .m { grid-column: 1; font-size: 0.85rem; color: var(--ink-soft); }
+    li button { grid-row: 1 / 3; grid-column: 2; align-self: center; background: none; border: none; color: var(--red); font-family: var(--font-sc); cursor: pointer; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .actions .btn { flex: 1; padding: 0.6em 0.8em; font-size: 0.9rem; }
+    svg { width: 100%; height: auto; background: rgba(255, 250, 235, 0.5); border: 1px solid var(--ink-soft); }
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 5; padding: 10px 16px; background: var(--ink); color: var(--paper); font-style: italic; border-radius: 2px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Survey Parchment</h1>
+    <p class="lead">Stand at a spot, name it, record. Repeat for every landmark on the floor.</p>
+
+    <p class="warn" id="insecure" hidden>GPS needs HTTPS. Open this page through the tunnel URL.</p>
+
+    <section class="card">
+      <h2>1 · What is here?</h2>
+      <div class="field">
+        <label for="label">Name</label>
+        <input type="text" id="label" placeholder="e.g. HOD Room door, Room 701, Lift 2" maxlength="60" />
+      </div>
+      <div class="field">
+        <label>Type</label>
+        <div class="types" id="types"></div>
+      </div>
+      <div class="field">
+        <label for="note">Note (optional)</label>
+        <input type="text" id="note" placeholder="e.g. standing at the door, facing inside" maxlength="120" />
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2 · Record</h2>
+      <p class="muted" style="margin-top:0">Stand still. It collects GPS for <b>20 seconds</b> and averages the readings.</p>
+      <button class="btn rec" id="rec">Record this spot</button>
+      <div class="live">
+        <div><b id="lCount">0</b><span>readings</span></div>
+        <div><b id="lAcc">—</b><span>phone accuracy</span></div>
+        <div><b id="lSpread">—</b><span>wobble</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3 · Recorded spots (<span id="count">0</span>)</h2>
+      <svg id="plot" viewBox="0 0 300 220"></svg>
+      <p class="muted" style="margin:6px 0 10px">Points plotted in meters (north is up). Does the shape look like your floor?</p>
+      <ul id="list"></ul>
+      <div class="actions">
+        <button class="btn" id="send">Send to laptop</button>
+        <button class="btn ghost" id="copy">Copy JSON</button>
+        <button class="btn ghost" id="download">Download</button>
+      </div>
+    </section>
+  </main>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      const KEY = 'pm-survey';
+      const TYPES = ['Lift', 'Entry', 'Lobby', 'Corridor', 'Classroom', 'Lab', 'Staff room', 'HOD room', 'Staff toilet', 'Student toilet', 'Water purifier', 'Stairs', 'Other'];
+      const DURATION_MS = 20000;
+      let type = 'Classroom', points = [], watchId = null, samples = [];
+
+      try { points = JSON.parse(localStorage.getItem(KEY)) || []; } catch {}
+      const save = () => { try { localStorage.setItem(KEY, JSON.stringify(points)); } catch {} };
+      const toast = (t) => { $('toast').textContent = t; $('toast').classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => $('toast').classList.remove('show'), 2200); };
+      if (!window.isSecureContext || !navigator.geolocation) $('insecure').hidden = false;
+
+      for (const t of TYPES) {
+        const b = document.createElement('button');
+        b.textContent = t;
+        b.onclick = () => { type = t; renderTypes(); };
+        $('types').appendChild(b);
+      }
+      const renderTypes = () => [...$('types').children].forEach((b) => b.classList.toggle('sel', b.textContent === type));
+      renderTypes();
+
+      // meters between two lat/lng (fine for a single building)
+      const meters = (a, b) => {
+        const kx = 111320 * Math.cos((a.lat * Math.PI) / 180);
+        return { x: (b.lng - a.lng) * kx, y: (b.lat - a.lat) * 110574 };
+      };
+
+      function summarize(s) {
+        // Weight precise readings more: w = 1 / acc^2
+        let W = 0, lat = 0, lng = 0;
+        for (const p of s) { const w = 1 / Math.max(1, p.acc) ** 2; W += w; lat += p.lat * w; lng += p.lng * w; }
+        const c = { lat: lat / W, lng: lng / W };
+        const d = s.map((p) => { const m = meters(c, p); return Math.hypot(m.x, m.y); });
+        const spread = Math.sqrt(d.reduce((a, v) => a + v * v, 0) / d.length);
+        const accs = s.map((p) => p.acc).sort((a, b) => a - b);
+        return { ...c, acc: accs[Math.floor(accs.length / 2)], spread };
+      }
+
+      const quality = (acc) => (acc <= 10 ? 'q-good' : acc <= 25 ? 'q-ok' : 'q-bad');
+
+      function stop() {
+        if (watchId != null) navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+        clearTimeout(stop.t);
+        $('rec').classList.remove('running');
+        $('rec').textContent = 'Record this spot';
+      }
+
+      $('rec').onclick = () => {
+        if (watchId != null) { stop(); return toast('Cancelled.'); }
+        const label = $('label').value.trim();
+        if (!label) { $('label').focus(); return toast('Give this spot a name first.'); }
+        if (!navigator.geolocation) return toast('No GPS in this browser.');
+        samples = [];
+        $('lCount').textContent = '0'; $('lAcc').textContent = '—'; $('lSpread').textContent = '—';
+        $('rec').classList.add('running');
+        const started = Date.now();
+        const tick = () => { if (watchId != null) { $('rec').textContent = `Recording… ${Math.ceil((DURATION_MS - (Date.now() - started)) / 1000)}s (tap to cancel)`; setTimeout(tick, 500); } };
+        watchId = navigator.geolocation.watchPosition((pos) => {
+          const { latitude: lat, longitude: lng, accuracy: acc, altitude: alt } = pos.coords;
+          samples.push({ lat, lng, acc, alt, t: pos.timestamp });
+          const s = summarize(samples);
+          $('lCount').textContent = samples.length;
+          $('lAcc').innerHTML = `<span class="${quality(acc)}">±${Math.round(acc)} m</span>`;
+          $('lSpread').textContent = `${s.spread.toFixed(1)} m`;
+        }, (err) => { stop(); toast(err.code === 1 ? 'Location permission denied.' : `GPS error: ${err.message}`); },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+        tick();
+        stop.t = setTimeout(() => {
+          stop();
+          if (!samples.length) return toast('No GPS readings came in. Try near a window.');
+          const s = summarize(samples);
+          points.push({
+            id: Date.now().toString(36), label, type, note: $('note').value.trim(),
+            lat: +s.lat.toFixed(7), lng: +s.lng.toFixed(7), acc: +s.acc.toFixed(1), spread: +s.spread.toFixed(1),
+            at: new Date().toISOString(), samples,
+          });
+          save(); render();
+          $('label').value = ''; $('note').value = '';
+          toast(`Saved "${label}" (±${Math.round(s.acc)} m)`);
+        }, DURATION_MS);
+      };
+
+      function render() {
+        $('count').textContent = points.length;
+        $('list').innerHTML = '';
+        points.slice().reverse().forEach((p) => {
+          const li = document.createElement('li');
+          li.innerHTML = `<span class="n"></span><span class="m"></span><button>Remove</button>`;
+          li.querySelector('.n').textContent = `${p.label} · ${p.type}`;
+          li.querySelector('.m').innerHTML = `<span class="${quality(p.acc)}">±${Math.round(p.acc)} m</span> · wobble ${p.spread} m · ${p.samples.length} readings`;
+          li.querySelector('button').onclick = () => { if (confirm(`Remove "${p.label}"?`)) { points = points.filter((q) => q.id !== p.id); save(); render(); } };
+          $('list').appendChild(li);
+        });
+        plot();
+      }
+
+      function plot() {
+        const svg = $('plot');
+        if (!points.length) { svg.innerHTML = '<text x="150" y="112" text-anchor="middle" font-style="italic" font-size="12" fill="#7a5530">No spots yet</text>'; return; }
+        const o = points[0];
+        const ms = points.map((p) => ({ p, m: meters(o, p) }));
+        const xs = ms.map((a) => a.m.x), ys = ms.map((a) => a.m.y);
+        const minX = Math.min(...xs) - 5, maxX = Math.max(...xs) + 5, minY = Math.min(...ys) - 5, maxY = Math.max(...ys) + 5;
+        const k = Math.min(280 / (maxX - minX), 200 / (maxY - minY));
+        const X = (x) => 10 + (x - minX) * k, Y = (y) => 210 - (y - minY) * k;
+        let h = '';
+        // 5 m grid
+        for (let x = Math.ceil(minX / 5) * 5; x <= maxX; x += 5) h += `<line x1="${X(x)}" y1="0" x2="${X(x)}" y2="220" stroke="#7a5530" stroke-width="0.3" opacity="0.4"/>`;
+        for (let y = Math.ceil(minY / 5) * 5; y <= maxY; y += 5) h += `<line x1="0" y1="${Y(y)}" x2="300" y2="${Y(y)}" stroke="#7a5530" stroke-width="0.3" opacity="0.4"/>`;
+        for (const { p, m } of ms) {
+          h += `<circle cx="${X(m.x)}" cy="${Y(m.y)}" r="${Math.max(2, p.spread * k)}" fill="rgba(140,42,28,0.08)" stroke="#8c2a1c" stroke-width="0.5"/>`;
+          h += `<circle cx="${X(m.x)}" cy="${Y(m.y)}" r="2.5" fill="#4a2e14"/>`;
+          const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          t.textContent = p.label;
+          h += `<text x="${X(m.x) + 4}" y="${Y(m.y) - 4}" font-size="8" fill="#4a2e14" font-family="IM Fell English SC">${t.textContent.replace(/[<&]/g, '')}</text>`;
+        }
+        h += `<text x="292" y="12" text-anchor="end" font-size="8" fill="#7a5530">grid = 5 m · N ↑</text>`;
+        svg.innerHTML = h;
+      }
+
+      const json = () => JSON.stringify({ floor: 7, department: 'Computer Science', exportedAt: new Date().toISOString(), points }, null, 2);
+
+      $('send').onclick = async () => {
+        try {
+          const r = await fetch('/api/survey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json() });
+          toast(r.ok ? `Sent ${points.length} spots to the laptop.` : `Laptop said: ${r.status}`);
+        } catch { toast('Laptop not reachable. Use Copy or Download instead.'); }
+      };
+      $('copy').onclick = async () => {
+        try { await navigator.clipboard.writeText(json()); toast('Copied. Paste it to Claude.'); }
+        catch { toast('Clipboard blocked. Use Download.'); }
+      };
+      $('download').onclick = () => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([json()], { type: 'application/json' }));
+        a.download = `floor7-survey-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
+        a.click();
+      };
+
+      render();
+    })();
+  </script>
+</body>
+</html>
